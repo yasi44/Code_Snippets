@@ -78,13 +78,13 @@ class CrawlerTabular:
                         # chrome_options.add_argument("--disable-infobar")
                         # import getpass
                         # _user = getpass.getuser()
-                        self.driver = webdriver.Chrome(executable_path=r'C:\Users\yasaman.eftekhary\PycharmProjects\all_crawlers\chromedriver.exe', options=chrome_options)
+                        self.driver = webdriver.Chrome(executable_path=r'C:\Users\<your path>\PycharmProjects\all_crawlers\chromedriver.exe', options=chrome_options)
                         # self.driver = webdriver.Chrome(executable_path='../../chromedriver', options=chrome_options)
 
                     elif self.config['driver'] == "firefox":
                         _options = firefox_options()
                         _options.headless = True
-                        self.driver = webdriver.Firefox(executable_path=r'C:\Users\yasaman.eftekhary\PycharmProjects\all_crawlers\geckodriver.exe',options=_options)
+                        self.driver = webdriver.Firefox(executable_path=r'C:\Users\<your path>\PycharmProjects\all_crawlers\geckodriver.exe',options=_options)
                         # self.driver = webdriver.Firefox(executable_path='../../chromedriver',options=_options)
                         print('g')
                 except Exception as e:
