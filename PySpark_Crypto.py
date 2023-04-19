@@ -71,16 +71,13 @@ mySchema = StructType([ StructField("exchange", StringType(), True)
                           ,StructField("time", StringType(), True)])
 
 
-def calculate_Trade_CVD():
+def calculate_Trade_CVD(data_source, output_uri):
     """
     :param data_source: The URI of data CSV, such as 's3://DOC-EXAMPLE-BUCKET/temp-data.csv'.
     :param output_uri: The URI where output is written, such as 's3://DOC-EXAMPLE-BUCKET/temp_results'.
     """
     # store the .gz file into temp bucket as .csv
 #     data_source = 's3a://v2-manual-backfill/ftx/TRADE/ftx_trades_2022-01-02_FUTURES.csv.gz'
-    data_source = 's3a://temp-bucket/tempFile.csv'
-    output_uri = 's3a://temp-bucket/test.csv'
-
 
     with SparkSession.builder.appName("Calculate Trade_CVD").config("spark.some.config.option", "some-value").getOrCreate() as spark:
         # sparkDF_inputdata = pandas_to_spark(df_inputdata, spark)
@@ -98,9 +95,6 @@ def calculate_Trade_CVD():
         # with gzip.open(data_source, 'rb') as f_in:
         #     with open(output_uri, 'wb') as f_out: # bucket temppath
         #         shutil.copyfileobj(f_in, f_out)
-
-            
-#             bu = conn.get_bucket('v2-manual-backfill')
     
         # trades_df = sparkDF_inputdata.withColumn("price", col("price").cast("double")).withColumn("size", col("size").cast("double")).withColumn("liquidation", col("liquidation").cast("boolean"))
         trades_df = sparkDF_inputdata.withColumn("price", col("price").cast("double")).\
@@ -108,15 +102,11 @@ def calculate_Trade_CVD():
             #.          withColumn("time", col("timestamp").cast("unixtime"))
 
         # F.from_utc_timestamp
-
         # trades_df.withColumn("date", col("price").cast("double"))
-
         # df3 = trades_df.select(F.from_unixtime(col("timestamp"), "MM-dd-yyyy HH:mm:ss").alias("time"))
-
         # F.when((trades_df.date.isNull() | (trades_df.date == '')), '0').otherwise(F.unix_timestamp(trades_df.timestamp, 'yyyy-MM-dd HH:mm:ss.SSS'))
 
-        ### --------- if data format is like
-        ### add  time_ms_right_4 cols --> contains the rounded decimal",
+        # add  time_ms_right_4 cols --> contains the rounded decimal",
         trades_df= trades_df.withColumn("time_ms_right_4", substring_index(round(substring(trades_df.time, 18, 7),3),'.',-1))
 
         # concat ms to the rest of datetime
@@ -127,20 +117,17 @@ def calculate_Trade_CVD():
         trades_df=trades_df.withColumn("time", to_timestamp(trades_df.joined_column, "yyyy-MM-dd HH:mm:ss.SSS"))
         trades_df = trades_df.drop("joined_column", "time_ms_right_4")
 
-        ### ----- if dataformat is timestamp
+        # ----- if dataformat is timestamp
         # trades_df=trades_df.withColumn("time", to_date("timestamp"))
-        # trades_df=trades_df.select(F.from_unixtime(col("timestamp"), "yyyy-MM-dd HH:mm:ss.SSS").alias("time"))
-
+        # trades_df=trades_df.select(F.from_unixtime(col("timestamp"), "yyyy-MM-dd HH:mm:ss.SSS").alias("time")
 
         trades_df = trades_df.withColumn("size_usd", (trades_df.price * trades_df.size))
 
         # trades['side'] = np.where(trades['side'] == 'buy', 1, -1)
         trades_df = trades_df.withColumn('side', when(trades_df.side=='buy',1).otherwise(0))
 
-
         # group_trades = trades.copy().groupby('time')
         group_trades_df = trades_df.alias('group_trades_df')
-
 
         # processed_trades['average_price'] = group_trades.mean()['price']
         temp2 = group_trades_df.groupBy('time').sum('size').withColumnRenamed("sum(size)", "sum_size").withColumnRenamed("time", "time2")
@@ -156,7 +143,6 @@ def calculate_Trade_CVD():
 
         processed_trades = temp2.join(temp3,  temp2.time2 == temp3.time3).join(temp4,  temp2.time2 == temp4.time4).join(temp5,  temp2.time2 == temp5.time5)
         processed_trades = processed_trades.drop('time3','time4','time5')
-
 
         vol_tier_1 = processed_trades.filter(processed_trades["sum_size"]<1)
         # vol_tier_1.count() # to test\n",
@@ -184,7 +170,6 @@ def calculate_Trade_CVD():
         vol_tier_3 = vol_tier_3.withColumn('cum_sum', F.sum('sum_size').over(windowval))
         # vol_tier_3.show(2, False)
         # vol_tier_3.cum_sum  is actually cv_3
-
 
         vol_tier_4 = vol_tier_4.withColumn("tempCol", lit(0))
         # windowval = (Window.partitionBy('tempCol').orderBy('time').rangeBetween(Window.unboundedPreceding, 0))
@@ -285,7 +270,7 @@ if __name__ == "__main__":
             # df_in = pd.read_csv('binance_incremental_book_L2_2022-05-05_BTCUSDT-sample.csv')
             # df_in = pd.read_csv('ftx_trades_2022-01-02_FUTURES.csv')
             df_in['time']=pd.to_datetime(df_in['timestamp']//1000, unit='ms')
-            write_to_S3_as_scv(df_in, "trade-temp-bucket", "tempFile.csv")
+            write_to_S3_as_scv(df_in, "temp-bucket", "tempFile.csv")
 
             # df_in.to_csv('tempFile.csv', header=True, sep=',')
             calculate_Trade_CVD()#df_in)  # args.data_source, args.output_uri)
